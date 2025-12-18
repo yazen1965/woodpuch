@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة تحطيم الأشجار</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const TreeChopGame = () => {
+          const [trees, setTrees] = useState([]);
+          const [wood, setWood] = useState(0);
+          const [money, setMoney] = useState(0);
+          const [bagCapacity, setBagCapacity] = useState(5);
+          const [axePower, setAxePower] = useState(1);
+          const [currentScreen, setCurrentScreen] = useState('forest');
+          const [currentIsland, setCurrentIsland] = useState('normal');
+          const [unlockedIslands, setUnlockedIslands] = useState(['normal']);
+          const [completedQuests, setCompletedQuests] = useState([]);
+
+          const islands = {
+            normal: {
+              name: 'الغابة العادية',
+              icon: '🌲',
+              cost: 0,
+              woodValue: 10,
+              bgColor: 'from-green-400 to-green-600',
+              treeTypes: ['🌲', '🌳']
+            },
+            snow: {
+              name: 'غابة الثلج',
+              icon: '🎄',
+              cost: 1000,
+              woodValue: 25,
+              bgColor: 'from-blue-300 to-blue-500',
+              treeTypes: ['🎄', '🌲']
+            },
+            desert: {
+              name: 'الصحراء',
+              icon: '🌵',
+              cost: 3000,
+              woodValue: 50,
+              bgColor: 'from-yellow-400 to-orange-500',
+              treeTypes: ['🌵', '🌴']
+            },
+            jungle: {
+              name: 'الغابة المطيرة',
+              icon: '🌴',
+              cost: 7000,
+              woodValue: 100,
+              bgColor: 'from-green-600 to-green-800',
+              treeTypes: ['🌴', '🌳', '🌲']
+            }
+          };
+
+          const quests = [
+            { id: 1, title: 'مبتدئ الأخشاب', desc: 'اجمع 50 خشبة', target: 50, type: 'wood', reward: 200, check: () => wood >= 50 },
+            { id: 2, title: 'الفأس القوي', desc: 'طور الفأس للمستوى 3', target: 3, type: 'axe', reward: 500, check: () => axePower >= 3 },
+            { id: 3, title: 'تاجر محترف', desc: 'اجمع 1000 عملة', target: 1000, type: 'money', reward: 500, check: () => money >= 1000 },
+            { id: 4, title: 'الشنطة الكبيرة', desc: 'طور الشنطة للسعة 20', target: 20, type: 'bag', reward: 800, check: () => bagCapacity >= 20 },
+            { id: 5, title: 'مستكشف الجزر', desc: 'افتح 3 جزر', target: 3, type: 'islands', reward: 1500, check: () => unlockedIslands.length >= 3 },
+            { id: 6, title: 'الفأس الأسطوري', desc: 'طور الفأس للمستوى 10', target: 10, type: 'axe', reward: 3000, check: () => axePower >= 10 }
+          ];
+
+          useEffect(() => {
+            const savedGame = localStorage.getItem('treeGameSave');
+            if (savedGame) {
+              try {
+                const data = JSON.parse(savedGame);
+                setWood(data.wood || 0);
+                setMoney(data.money || 0);
+                setBagCapacity(data.bagCapacity || 5);
+                setAxePower(data.axePower || 1);
+                setUnlockedIslands(data.unlockedIslands || ['normal']);
+                setCompletedQuests(data.completedQuests || []);
+                setCurrentIsland(data.currentIsland || 'normal');
+              } catch (e) {
+                console.error('خطأ في تحميل اللعبة');
+              }
+            }
+          }, []);
+
+          useEffect(() => {
+            const gameData = {
+              wood,
+              money,
+              bagCapacity,
+              axePower,
+              unlockedIslands,
+              completedQuests,
+              currentIsland
+            };
+            localStorage.setItem('treeGameSave', JSON.stringify(gameData));
+          }, [wood, money, bagCapacity, axePower, unlockedIslands, completedQuests, currentIsland]);
+
+          useEffect(() => {
+            generateTrees();
+          }, [currentIsland]);
+
+          const generateTrees = () => {
+            const newTrees = [];
+            for (let i = 0; i < 15; i++) {
+              newTrees.push({
+                id: Date.now() + i,
+                health: 100,
+                x: (i % 5) * 18 + 5,
+                y: Math.floor(i / 5) * 30 + 10,
+                type: islands[currentIsland].treeTypes[Math.floor(Math.random() * islands[currentIsland].treeTypes.length)]
+              });
+            }
+            setTrees(newTrees);
+          };
+
+          const chopTree = (treeId) => {
+            if (wood >= bagCapacity) {
+              alert('الشنطة ممتلئة! روح بيع الخشب عند البائع');
+              return;
+            }
+
+            setTrees(prevTrees => {
+              return prevTrees.map(tree => {
+                if (tree.id === treeId) {
+                  const newHealth = tree.health - (10 * axePower);
+                  if (newHealth <= 0) {
+                    const woodAmount = Math.min(bagCapacity - wood, 3);
+                    setWood(w => Math.min(w + woodAmount, bagCapacity));
+                    
+                    setTimeout(() => {
+                      setTrees(prev => {
+                        const filtered = prev.filter(t => t.id !== treeId);
+                        return [...filtered, {
+                          id: Date.now(),
+                          health: 100,
+                          x: tree.x,
+                          y: tree.y,
+                          type: islands[currentIsland].treeTypes[Math.floor(Math.random() * islands[currentIsland].treeTypes.length)]
+                        }];
+                      });
+                    }, 2000);
+                    
+                    return null;
+                  }
+                  return { ...tree, health: newHealth };
+                }
+                return tree;
+              }).filter(Boolean);
+            });
+          };
+
+          const sellWood = () => {
+            const earnings = wood * islands[currentIsland].woodValue;
+            setMoney(m => m + earnings);
+            setWood(0);
+          };
+
+          const upgradeBag = () => {
+            const cost = (bagCapacity - 5 + 1) * 50;
+            if (money >= cost) {
+              setMoney(m => m - cost);
+              setBagCapacity(c => c + 5);
+            }
+          };
+
+          const upgradeAxe = () => {
+            const cost = axePower * 100;
+            if (money >= cost) {
+              setMoney(m => m - cost);
+              setAxePower(p => p + 1);
+            }
+          };
+
+          const unlockIsland = (islandKey) => {
+            const island = islands[islandKey];
+            if (money >= island.cost && !unlockedIslands.includes(islandKey)) {
+              setMoney(m => m - island.cost);
+              setUnlockedIslands([...unlockedIslands, islandKey]);
+              setCurrentIsland(islandKey);
+            }
+          };
+
+          const claimQuest = (quest) => {
+            if (quest.check() && !completedQuests.includes(quest.id)) {
+              setMoney(m => m + quest.reward);
+              setCompletedQuests([...completedQuests, quest.id]);
+            }
+          };
+
+          const resetGame = () => {
+            if (confirm('هل أنت متأكد من حذف كل التقدم؟')) {
+              localStorage.removeItem('treeGameSave');
+              window.location.reload();
+            }
+          };
+
+          return (
+            <div className="min-h-screen bg-gradient-to-b from-sky-400 to-green-300 p-4" dir="rtl">
+              <div className="max-w-6xl mx-auto">
+                <div className="bg-amber-900 rounded-lg shadow-xl p-4 mb-4">
+                  <div className="grid grid-cols-3 gap-4 text-white text-center">
+                    <div className="bg-amber-800 rounded p-3">
+                      <div className="text-3xl mb-1">🪵</div>
+                      <div className="font-bold text-xl">{wood}/{bagCapacity}</div>
+                      <div className="text-sm">الأخشاب</div>
+                    </div>
+                    <div className="bg-amber-800 rounded p-3">
+                      <div className="text-3xl mb-1">💰</div>
+                      <div className="font-bold text-xl">{money}</div>
+                      <div className="text-sm">الفلوس</div>
+                    </div>
+                    <div className="bg-amber-800 rounded p-3">
+                      <div className="text-3xl mb-1">🪓</div>
+                      <div className="font-bold text-xl">المستوى {axePower}</div>
+                      <div className="text-sm">قوة الفأس</div>
+                    </div>
+                  </div>
+                  <div className="text-center mt-2 text-yellow-300 text-sm">
+                    الجزيرة: {islands[currentIsland].name} | قيمة الخشب: {islands[currentIsland].woodValue} 💰
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  <button
+                    onClick={() => setCurrentScreen('forest')}
+                    className={`py-3 rounded-lg font-bold transition ${
+                      currentScreen === 'forest' ? 'bg-green-600 text-white' : 'bg-white text-green-600'
+                    }`}
+                  >
+                    🌲 الغابة
+                  </button>
+                  <button
+                    onClick={() => setCurrentScreen('seller')}
+                    className={`py-3 rounded-lg font-bold transition ${
+                      currentScreen === 'seller' ? 'bg-blue-600 text-white' : 'bg-white text-blue-600'
+                    }`}
+                  >
+                    🏪 البائع
+                  </button>
+                  <button
+                    onClick={() => setCurrentScreen('shop')}
+                    className={`py-3 rounded-lg font-bold transition ${
+                      currentScreen === 'shop' ? 'bg-purple-600 text-white' : 'bg-white text-purple-600'
+                    }`}
+                  >
+                    🛒 المتجر
+                  </button>
+                  <button
+                    onClick={() => setCurrentScreen('quests')}
+                    className={`py-3 rounded-lg font-bold transition relative ${
+                      currentScreen === 'quests' ? 'bg-yellow-600 text-white' : 'bg-white text-yellow-600'
+                    }`}
+                  >
+                    🎯 المهمات
+                    {quests.filter(q => q.check() && !completedQuests.includes(q.id)).length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
+                        {quests.filter(q => q.check() && !completedQuests.includes(q.id)).length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {currentScreen === 'forest' && (
+                  <div className={`bg-gradient-to-b ${islands[currentIsland].bgColor} rounded-lg shadow-xl p-6`}>
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-3xl font-bold text-white">{islands[currentIsland].icon} {islands[currentIsland].name}</h2>
+                      <button
+                        onClick={() => setCurrentScreen('islands')}
+                        className="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold hover:bg-blue-50"
+                      >
+                        🗺️ تغيير الجزيرة
+                      </button>
+                    </div>
+                    <div className="relative h-96 bg-black bg-opacity-20 rounded-lg">
+                      {trees.map(tree => (
+                        <button
+                          key={tree.id}
+                          onClick={() => chopTree(tree.id)}
+                          className="absolute transform hover:scale-110 transition"
+                          style={{ left: `${tree.x}%`, top: `${tree.y}%` }}
+                        >
+                          <div className="text-5xl">{tree.type}</div>
+                          <div className="bg-red-500 h-2 rounded-full mt-1 overflow-hidden w-12">
+                            <div 
+                              className="bg-green-400 h-full transition-all"
+                              style={{ width: `${tree.health}%` }}
+                            ></div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {currentScreen === 'islands' && (
+                  <div className="bg-white rounded-lg shadow-xl p-6">
+                    <h2 className="text-3xl font-bold text-center mb-6">🗺️ الجزر المتاحة</h2>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {Object.entries(islands).map(([key, island]) => (
+                        <div 
+                          key={key}
+                          className={`border-4 rounded-lg p-6 ${
+                            unlockedIslands.includes(key) ? 'border-green-500' : 'border-gray-300'
+                          }`}
+                        >
+                          <div className="text-6xl text-center mb-3">{island.icon}</div>
+                          <h3 className="text-2xl font-bold text-center mb-2">{island.name}</h3>
+                          <div className="text-center mb-4">
+                            <div className="text-lg">قيمة الخشب: <span className="font-bold text-green-600">{island.woodValue} 💰</span></div>
+                          </div>
+                          {unlockedIslands.includes(key) ? (
+                            <button
+                              onClick={() => {
+                                setCurrentIsland(key);
+                                setCurrentScreen('forest');
+                              }}
+                              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg"
+                            >
+                              {currentIsland === key ? '✅ الجزيرة الحالية' : 'انتقل للجزيرة'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => unlockIsland(key)}
+                              disabled={money < island.cost}
+                              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-3 rounded-lg"
+                            >
+                              {money >= island.cost ? `افتح (${island.cost} 💰)` : `تحتاج ${island.cost} 💰`}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setCurrentScreen('forest')}
+                      className="w-full mt-4 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-lg"
+                    >
+                      عودة للغابة
+                    </button>
+                  </div>
+                )}
+
+                {currentScreen === 'quests' && (
+                  <div className="bg-gradient-to-b from-yellow-400 to-orange-500 rounded-lg shadow-xl p-6">
+                    <h2 className="text-3xl font-bold text-white text-center mb-6">🎯 المهمات</h2>
+                    <div className="space-y-4">
+                      {quests.map(quest => {
+                        const isCompleted = completedQuests.includes(quest.id);
+                        const canClaim = quest.check() && !isCompleted;
+                        return (
+                          <div 
+                            key={quest.id}
+                            className={`bg-white rounded-lg p-4 ${isCompleted ? 'opacity-50' : ''}`}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <h3 className="text-xl font-bold">{quest.title}</h3>
+                                <p className="text-gray-600">{quest.desc}</p>
+                              </div>
+                              <div className="text-2xl">
+                                {isCompleted ? '✅' : canClaim ? '🎁' : '⏳'}
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <div className="text-lg font-bold text-green-600">
+                                مكافأة: {quest.reward} 💰
+                              </div>
+                              {!isCompleted && (
+                                <button
+                                  onClick={() => claimQuest(quest)}
+                                  disabled={!canClaim}
+                                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-bold"
+                                >
+                                  {canClaim ? 'استلم المكافأة' : 'لم تكتمل'}
+                                </button>
+                              )}
+                              {isCompleted && (
+                                <span className="text-gray-500 font-bold">مكتملة ✅</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {currentScreen === 'seller' && (
+                  <div className="bg-gradient-to-b from-blue-400 to-blue-600 rounded-lg shadow-xl p-8">
+                    <h2 className="text-4xl font-bold text-white text-center mb-6">🏪 بائع الأخشاب</h2>
+                    <div className="bg-white rounded-lg p-8 max-w-md mx-auto">
+                      <div className="text-center mb-6">
+                        <div className="text-7xl mb-4">👨‍💼</div>
+                        <p className="text-xl text-gray-700 mb-2">مرحباً! أشتري الأخشاب منك</p>
+                        <p className="text-3xl font-bold text-green-600 mb-4">
+                          🪵 = {islands[currentIsland].woodValue} 💰
+                        </p>
+                      </div>
+                      
+                      <div className="bg-gray-100 rounded-lg p-6 mb-6">
+                        <div className="text-center">
+                          <div className="text-lg text-gray-600 mb-2">عندك حالياً</div>
+                          <div className="text-4xl font-bold text-amber-700 mb-2">{wood} 🪵</div>
+                          <div className="text-2xl text-green-600 font-bold">
+                            = {wood * islands[currentIsland].woodValue} 💰
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={sellWood}
+                        disabled={wood === 0}
+                        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-4 rounded-lg text-xl"
+                      >
+                        {wood === 0 ? 'ما عندك أخشاب!' : `بيع كل الأخشاب 💰`}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {currentScreen === 'shop' && (
+                  <div className="bg-gradient-to-b from-purple-400 to-purple-600 rounded-lg shadow-xl p-8">
+                    <h2 className="text-4xl font-bold text-white text-center mb-6">🛒 متجر الترقيات</h2>
+                    
+                    <div className="grid md:grid-cols-2 gap-6 mb-6">
+                      <div className="bg-white rounded-lg p-6">
+                        <div className="text-6xl text-center mb-4">🎒</div>
+                        <h3 className="text-2xl font-bold text-center mb-2">ترقية الشنطة</h3>
+                        <div className="text-center text-gray-600 mb-4">
+                          <div className="text-lg">السعة الحالية: <span className="font-bold text-purple-600">{bagCapacity} 🪵</span></div>
+                          <div className="text-lg">السعة بعد الترقية: <span className="font-bold text-green-600">{bagCapacity + 5} 🪵</span></div>
+                        </div>
+                        <button
+                          onClick={upgradeBag}
+                          disabled={money < (bagCapacity - 5 + 1) * 50}
+                          className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-bold py-3 rounded-lg"
+                        >
+                          {money >= (bagCapacity - 5 + 1) * 50 
+                            ? `ترقية (${(bagCapacity - 5 + 1) * 50} 💰)` 
+                            : `تحتاج ${(bagCapacity - 5 + 1) * 50} 💰`}
+                        </button>
+                      </div>
+
+                      <div className="bg-white rounded-lg p-6">
+                        <div className="text-6xl text-center mb-4">🪓</div>
+                        <h3 className="text-2xl font-bold text-center mb-2">ترقية الفأس</h3>
+                        <div className="text-center text-gray-600 mb-4">
+                          <div className="text-lg">القوة الحالية: <span className="font-bold text-purple-600">المستوى {axePower}</span></div>
+                          <div className="text-lg">القوة بعد الترقية: <span className="font-bold text-green-600">المستوى {axePower + 1}</span></div>
+                        </div>
+                        <button
+                          onClick={upgradeAxe}
+                          disabled={money < axePower * 100}
+                          className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-bold py-3 rounded-lg"
+                        >
+                          {money >= axePower * 100 
+                            ? `ترقية (${axePower * 100} 💰)` 
+                            : `تحتاج ${axePower * 100} 💰`}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={resetGame}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg"
+                    >
+                      🔄 إعادة تعيين اللعبة
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        ReactDOM.render(<TreeChopGame />, document.getElementById('root'));
+    </script>
+</body>
+</html>
